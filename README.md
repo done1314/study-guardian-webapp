@@ -2,6 +2,8 @@
 
 一个移动端优先、Apple 风格的本地学习督促原型。
 
+[直接打开 Web App](https://done1314.github.io/study-guardian-webapp/)
+
 ## 使用
 
 直接打开 `index.html` 即可。建议使用手机浏览器或窄窗口查看。
