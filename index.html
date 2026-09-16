@@ -48,6 +48,7 @@
           <h2 id="taskHeading">今日任务</h2>
           <span id="totalDuration">共 120 分钟</span>
         </div>
+        <button class="rest-button" id="restToday" hidden><span>☕</span><strong>今天休息</strong><small>未完成任务将顺延一天</small></button>
         <div id="taskList"></div>
       </section>
 
@@ -76,6 +77,18 @@
         <h1 id="progressTitle">坚持，会被看见。</h1>
         <p>所有数据只保存在这台设备的浏览器中。</p>
       </div>
+      <div class="progress-toolbar">
+        <div class="period-tabs" id="periodTabs"><button class="active" data-period="day">日</button><button data-period="week">周</button><button data-period="month">月</button></div>
+        <div class="period-nav"><button id="progressPrev" aria-label="上一时间段">‹</button><input id="progressDate" type="date" aria-label="统计日期" /><button id="progressNext" aria-label="下一时间段">›</button></div>
+      </div>
+      <section class="focus-card" aria-labelledby="focusChartTitle">
+        <div class="section-heading"><h2 id="focusChartTitle">分类专注</h2><span id="focusRange"></span></div>
+        <div class="pie-layout">
+          <div class="focus-pie" id="focusPie" role="img" aria-label="分类专注时间饼图"><div><strong id="focusTotal">0</strong><span>分钟</span></div></div>
+          <div class="focus-legend" id="focusLegend"></div>
+        </div>
+        <p class="pie-detail" id="pieDetail">完成任务后，这里会按分类统计专注时间。</p>
+      </section>
       <div class="stats-grid" id="statsGrid"></div>
       <section class="section-block history-block">
         <div class="section-heading"><h2>最近打卡</h2></div>
@@ -120,6 +133,8 @@
     <div class="sheet-bar"><button class="text-button" data-close-sheet>取消</button><h2 id="taskSheetTitle">添加任务</h2><button class="text-button strong" id="saveTask">完成</button></div>
     <div class="sheet-body form-body">
       <label class="form-field"><span>任务名称</span><input id="customTitle" type="text" maxlength="40" placeholder="例如：背单词" /></label>
+      <label class="form-field"><span>任务分类</span><input id="customCategory" type="text" maxlength="12" list="categoryOptions" placeholder="例如：专业课" /></label>
+      <datalist id="categoryOptions"><option value="数学"></option><option value="英语"></option><option value="政治"></option><option value="专业课"></option><option value="其他"></option></datalist>
       <label class="form-field"><span>开始日期</span><input id="customStartDate" type="date" /></label>
       <label class="form-field"><span>任务总天数</span><span class="input-unit"><input id="customTotalDays" type="number" min="1" max="365" step="1" value="1" /> 天</span></label>
       <label class="form-field"><span>专注时长</span><span class="input-unit"><input id="customDuration" type="number" min="5" max="480" step="5" value="30" /> 分钟</span></label>
