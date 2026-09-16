@@ -42,6 +42,7 @@
       </div>
 
       <div class="date-strip" id="dateStrip" aria-label="选择日期"></div>
+      <div class="calendar-actions"><button id="backToToday" hidden><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>回到今天</button></div>
 
       <section class="section-block" aria-labelledby="taskHeading">
         <div class="section-heading">
@@ -91,7 +92,7 @@
       </section>
       <div class="stats-grid" id="statsGrid"></div>
       <section class="section-block history-block">
-        <div class="section-heading"><h2>最近打卡</h2></div>
+        <div class="section-heading"><h2>最近专注</h2></div>
         <div class="history-list" id="historyList"></div>
       </section>
     </section>
@@ -110,7 +111,18 @@
     <div class="sheet-body">
       <p id="durationSubject"></p>
       <label class="duration-input"><input id="durationInput" type="number" min="5" max="480" step="5" inputmode="numeric" /><span>分钟</span></label>
-      <div class="preset-row" id="presetRow"><button>30</button><button>45</button><button>60</button><button>90</button></div>
+      <div class="preset-row" id="presetRow"><button>25</button><button>30</button><button>45</button><button>60</button><button>90</button></div>
+    </div>
+  </section>
+
+  <section class="sheet focus-sheet" id="focusSheet" role="dialog" aria-modal="true" aria-labelledby="focusSheetTitle" hidden>
+    <div class="grabber"></div>
+    <div class="sheet-bar"><button class="text-button" id="closeFocus">关闭</button><h2 id="focusSheetTitle">番茄专注</h2><span></span></div>
+    <div class="sheet-body">
+      <p id="focusSubject"></p>
+      <div class="timer-ring" id="timerRing"><div><strong id="timerValue">25:00</strong><span id="timerStatus">准备专注</span></div></div>
+      <div class="timer-actions"><button class="timer-secondary" id="resetFocus">重置</button><button class="timer-primary" id="toggleFocus">开始专注</button><button class="timer-secondary" id="finishFocus">结束并记录</button></div>
+      <p class="timer-hint">专注记录按实际时长计入当天的分类统计。</p>
     </div>
   </section>
 
@@ -151,6 +163,7 @@
         <button class="duration-pill" aria-label="设置任务时长"></button>
       </div>
       <div class="proof-area">
+        <button class="focus-button"><span>🍅</span><strong>开始番茄专注</strong><small></small></button>
         <input class="photo-input" type="file" accept="image/*" capture="environment" hidden />
         <button class="upload-button"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v12H4Z"/><circle cx="12" cy="13" r="4"/></svg><span>拍照上传</span></button>
         <div class="proof-preview" hidden><img alt="学习内容证明"/><div><strong>照片已添加</strong><span class="proof-name"></span></div><button class="replace-proof">更换</button></div>
