@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#f2f2f7" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="李国栋的复习计划" />
-  <title>李国栋的复习计划</title>
+  <meta name="apple-mobile-web-app-title" content="我的复习计划" />
+  <title>我的复习计划</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
@@ -22,7 +22,7 @@
     <button class="icon-button" id="todayShortcut" aria-label="回到今天">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M17 3h4v4"/></svg>
     </button>
-    <div class="brand"><img src="icon-192.png" alt="" />李国栋的复习计划</div>
+    <div class="brand" id="brandName"><img src="icon-192.png" alt="" /><span>我的复习计划</span></div>
     <button class="icon-button" id="openSettings" aria-label="设置">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.16.38.37.72.6 1 .28.25.66.39 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.7.6Z"/></svg>
     </button>
@@ -63,13 +63,11 @@
       <div class="page-head">
         <p class="eyebrow">学习路径</p>
         <h1 id="planTitle">天数由你，节奏由你。</h1>
-        <p>数学文件夹按内容量分配；开始日期与总天数都可以修改。</p>
+        <p>每项任务都有自己的学习目录，可随时添加、排序或修改。</p>
       </div>
       <div class="plan-summary" id="planSummary"></div>
-      <div class="section-heading catalog-heading"><h2>数学课程目录</h2><span id="courseCount"></span></div>
-      <div class="catalog" id="courseCatalog"></div>
-      <div class="section-heading custom-heading"><h2>自定义任务</h2><button class="add-task-button" id="openAddTask"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>添加</button></div>
-      <div class="custom-list" id="customTaskList"></div>
+      <div class="section-heading catalog-heading"><h2>学习任务与目录</h2><button class="add-task-button" id="openAddTask"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>添加任务</button></div>
+      <div class="plan-task-list" id="planTaskList"></div>
     </section>
 
     <section class="view" id="progressView" aria-labelledby="progressTitle">
@@ -130,11 +128,12 @@
     <div class="grabber"></div>
     <div class="sheet-bar"><button class="text-button" data-close-sheet>取消</button><h2 id="settingsTitle">计划设置</h2><button class="text-button strong" id="saveSettings">完成</button></div>
     <div class="sheet-body settings-body">
+      <label>计划名称<span><input class="wide-input" id="planName" type="text" maxlength="24" placeholder="例如：小王的复习计划" /></span></label>
       <label>计划开始日期<span><input id="planStartDate" type="date" /></span></label>
-      <label>数学计划总天数<span><input id="mathPlanDays" type="number" min="21" max="365" step="1" /> 天</span></label>
+      <label>数学计划总天数<span><input id="mathPlanDays" type="number" min="1" max="365" step="1" /> 天</span></label>
       <label>数学默认时长<span><input id="mathDefault" type="number" min="5" max="480" step="5" /> 分钟</span></label>
       <label>英语默认时长<span><input id="englishDefault" type="number" min="5" max="480" step="5" /> 分钟</span></label>
-      <p>数学计划最少 21 天，每个一级文件夹至少安排 1 天。修改计划后，已有打卡记录仍会保留。</p>
+      <p>计划名称会显示在应用顶部。数学总天数不能少于数学目录项数，修改后已有打卡记录仍会保留。</p>
       <button class="install-button" id="installApp"><img src="icon-192.png" alt="" /><span><strong>添加到桌面</strong><small>安装为独立 Web App</small></span><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 19h14"/></svg></button>
       <p class="install-hint" id="installHint" hidden></p>
     </div>
@@ -150,8 +149,20 @@
       <label class="form-field"><span>开始日期</span><input id="customStartDate" type="date" /></label>
       <label class="form-field"><span>任务总天数</span><span class="input-unit"><input id="customTotalDays" type="number" min="1" max="365" step="1" value="1" /> 天</span></label>
       <label class="form-field"><span>专注时长</span><span class="input-unit"><input id="customDuration" type="number" min="5" max="480" step="5" value="30" /> 分钟</span></label>
+      <label class="form-field form-field-stack"><span>学习目录</span><textarea id="customCatalog" rows="6" placeholder="每行一项，例如：&#10;第一章 函数&#10;第二章 导数"></textarea></label>
       <p class="field-error" id="taskError" hidden>请输入任务名称。</p>
       <button class="delete-task" id="deleteTask" hidden>删除任务</button>
+    </div>
+  </section>
+
+  <section class="sheet" id="catalogSheet" role="dialog" aria-modal="true" aria-labelledby="catalogSheetTitle" hidden>
+    <div class="grabber"></div>
+    <div class="sheet-bar"><button class="text-button" data-close-sheet>取消</button><h2 id="catalogSheetTitle">编辑学习目录</h2><button class="text-button strong" id="saveCatalog">完成</button></div>
+    <div class="sheet-body form-body">
+      <p id="catalogSubject"></p>
+      <label class="form-field form-field-stack"><span>目录内容</span><textarea id="catalogInput" rows="10" placeholder="每行填写一个章节或学习单元"></textarea></label>
+      <p class="field-error" id="catalogError" hidden>请至少填写一项目录。</p>
+      <p class="catalog-help">直接调整每行的先后顺序，即可改变学习顺序。</p>
     </div>
   </section>
 

@@ -1,7 +1,7 @@
 {
-  "name": "李国栋的复习计划",
-  "short_name": "李国栋复习",
-  "description": "可自定起始日期和总天数的复习计划、专注时长与拍照打卡",
+  "name": "复习计划",
+  "short_name": "复习计划",
+  "description": "可自定义名称、学习任务、目录、专注时长与拍照打卡的复习计划",
   "lang": "zh-CN",
   "start_url": "./",
   "scope": "./",
