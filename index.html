@@ -121,6 +121,17 @@
       <div class="timer-ring" id="timerRing"><div><strong id="timerValue">25:00</strong><span id="timerStatus">准备专注</span></div></div>
       <div class="timer-actions"><button class="timer-secondary" id="resetFocus">重置</button><button class="timer-primary" id="toggleFocus">开始专注</button><button class="timer-secondary" id="finishFocus">结束并记录</button></div>
       <p class="timer-hint">专注记录按实际时长计入当天的分类统计。</p>
+      <div class="manual-focus">
+        <h3>补记今天的学习</h3>
+        <p>没有开启番茄钟时，填写实际开始和结束时间。</p>
+        <div class="manual-time-fields">
+          <label>开始时间<input id="manualFocusStart" type="time" /></label>
+          <label>结束时间<input id="manualFocusEnd" type="time" /></label>
+        </div>
+        <p class="manual-focus-preview" id="manualFocusPreview">填写时间后自动计算时长</p>
+        <p class="field-error" id="manualFocusError" role="alert" hidden></p>
+        <button class="manual-focus-save" id="saveManualFocus">记录专注时间</button>
+      </div>
     </div>
   </section>
 

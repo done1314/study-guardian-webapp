@@ -162,7 +162,9 @@ function pauseFocusTimer(){
 }
 function openFocusTimer(task){
   if(state.focusTimer?.itemId!==task.itemId){pauseFocusTimer();state.focusTimer={itemId:task.itemId,durationSeconds:durationFor(task)*60,elapsedSeconds:state.focusDrafts[task.itemId]||0,running:false,startedAt:null};}
-  focusTask=task;document.querySelector('#focusSubject').textContent=`${task.category} · ${task.title}`;openSheet('#focusSheet');startFocusTicker();renderFocusTimer();
+  focusTask=task;document.querySelector('#focusSubject').textContent=`${task.category} · ${task.title}`;
+  document.querySelector('#manualFocusStart').value='';document.querySelector('#manualFocusEnd').value=new Date().toTimeString().slice(0,5);updateManualFocusPreview();
+  openSheet('#focusSheet');startFocusTicker();renderFocusTimer();
 }
 function startFocusTicker(){clearInterval(focusInterval);focusInterval=setInterval(()=>{renderFocusTimer();if(state.focusTimer?.running&&currentFocusElapsed()>=state.focusTimer.durationSeconds)finishAndRecordFocus(true);},1000);}
 function renderFocusTimer(){
@@ -174,6 +176,29 @@ function toggleFocusTimer(){
 function resetFocusTimer(){if(!state.focusTimer)return;state.focusTimer.elapsedSeconds=0;state.focusTimer.running=false;state.focusTimer.startedAt=null;state.focusDrafts[state.focusTimer.itemId]=0;clearInterval(focusInterval);focusInterval=null;saveState();renderFocusTimer();renderToday();}
 function finishAndRecordFocus(auto=false){
   if(!state.focusTimer||!focusTask)return;const seconds=currentFocusElapsed();if(seconds<1)return;const timer=state.focusTimer;state.focusLogs.push({id:`focus-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,itemId:focusTask.itemId,date:today,seconds,category:focusTask.category,title:focusTask.title});delete state.focusDrafts[timer.itemId];state.focusTimer=null;clearInterval(focusInterval);focusInterval=null;saveState();closeSheets();renderToday();if(document.querySelector('#progressView').classList.contains('active'))renderProgress();
+}
+function manualFocusDuration(start,end){
+  if(!/^\d{2}:\d{2}$/.test(start)||!/^\d{2}:\d{2}$/.test(end))return {error:'请填写开始和结束时间。'};
+  const [startHour,startMinute]=start.split(':').map(Number),[endHour,endMinute]=end.split(':').map(Number),minutes=(endHour*60+endMinute)-(startHour*60+startMinute);
+  if(startHour>23||endHour>23||startMinute>59||endMinute>59)return {error:'请填写有效的时间。'};
+  if(minutes<=0)return {error:'结束时间要晚于开始时间。'};
+  if(endHour*60+endMinute>new Date().getHours()*60+new Date().getMinutes())return {error:'结束时间不能晚于现在。'};
+  return {seconds:minutes*60};
+}
+function updateManualFocusPreview(){
+  const result=manualFocusDuration(document.querySelector('#manualFocusStart').value,document.querySelector('#manualFocusEnd').value);
+  document.querySelector('#manualFocusPreview').textContent=result.error?'填写时间后自动计算时长':`本次可补记 ${formatFocusSeconds(result.seconds)}`;
+  document.querySelector('#manualFocusError').hidden=true;
+}
+function saveManualFocus(){
+  const error=document.querySelector('#manualFocusError');
+  if(state.focusTimer?.running){error.textContent='请先暂停或结束正在运行的番茄钟。';error.hidden=false;return;}
+  const startTime=document.querySelector('#manualFocusStart').value,endTime=document.querySelector('#manualFocusEnd').value,result=manualFocusDuration(startTime,endTime);
+  if(result.error){error.textContent=result.error;error.hidden=false;return;}
+  if(!focusTask)return;
+  if(state.focusLogs.some(log=>log.source==='manual'&&log.itemId===focusTask.itemId&&log.date===today&&log.startTime===startTime&&log.endTime===endTime)){error.textContent='这段时间已经记录过了。';error.hidden=false;return;}
+  state.focusLogs.push({id:`manual-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,itemId:focusTask.itemId,date:today,seconds:result.seconds,category:focusTask.category,title:focusTask.title,source:'manual',startTime,endTime});
+  saveState();closeSheets();renderToday();if(document.querySelector('#progressView').classList.contains('active'))renderProgress();
 }
 
 function scheduleDateForIndex(series,index){
@@ -188,8 +213,13 @@ function renderPlan(){
   renderPlanGroup(list,{id:'english',title:'英语阅读',category:'英语',startDate:state.startDate,totalDays:ENGLISH_DAYS,catalog:state.catalogs.english});
   state.customTasks.forEach(task=>renderPlanGroup(list,{id:`custom-${task.id}`,title:task.title,category:task.category,startDate:task.startDate,totalDays:task.totalDays,catalog:cleanCatalog(task.catalog,[task.title]),customId:task.id}));
 }
+function completedForPlan(seriesId){
+  return completedEntries().filter(([itemId])=>itemId.startsWith(`${seriesId}:`)).map(([itemId,entry])=>({itemId,entry,index:Number(itemId.slice(seriesId.length+1))})).sort((a,b)=>b.entry.completedDate.localeCompare(a.entry.completedDate)||b.index-a.index);
+}
 function renderPlanGroup(list,plan){
-  const group=document.createElement('section');group.className='plan-task-group';group.innerHTML=`<div class="plan-task-head"><div><h3>${escapeText(plan.title)}</h3><p>${escapeText(plan.category)} · ${formatDate(plan.startDate)}开始 · ${plan.totalDays} 天 · ${plan.catalog.length} 项目录</p></div><div class="plan-task-actions">${plan.customId?`<button class="task-meta-button" aria-label="编辑任务 ${escapeText(plan.title)}">›</button>`:''}<button class="catalog-edit-button">编辑目录</button></div></div><div class="plan-catalog"></div>`;
+  const completed=completedForPlan(plan.id),group=document.createElement('section');group.className='plan-task-group';
+  group.innerHTML=`<div class="plan-task-head"><div><h3>${escapeText(plan.title)}</h3><p>${escapeText(plan.category)} · ${formatDate(plan.startDate)}开始 · ${plan.totalDays} 天 · ${plan.catalog.length} 项目录</p><span class="plan-done-count">已完成 ${completed.length} / ${plan.totalDays} 天</span></div><div class="plan-task-actions">${plan.customId?`<button class="task-meta-button" aria-label="编辑任务 ${escapeText(plan.title)}">›</button>`:''}<button class="catalog-edit-button">编辑目录</button></div></div>${completed.length?'<details class="plan-completed-records" open><summary>已完成记录</summary><div class="plan-completed-list"></div></details>':''}<div class="plan-catalog"></div>`;
+  if(completed.length){const records=group.querySelector('.plan-completed-list');completed.forEach(({entry,index})=>{const row=document.createElement('div');row.className='plan-completed-row';row.innerHTML=`<span class="plan-completed-check">✓</span><div><strong>${escapeText(entry.title||`第 ${index+1} 天`)}</strong><small>第 ${index+1} 天 · ${formatDate(entry.completedDate)}完成</small></div>`;records.append(row);});}
   const catalog=group.querySelector('.plan-catalog');plan.catalog.forEach((title,index)=>{const days=plan.allocations?.[index]?.days??Math.floor((index+1)*plan.totalDays/plan.catalog.length)-Math.floor(index*plan.totalDays/plan.catalog.length),row=document.createElement('div');row.className='plan-catalog-row';row.innerHTML=`<span class="catalog-order">${String(index+1).padStart(2,'0')}</span><strong>${escapeText(title)}</strong><small>${days>0?`${days} 天`:'合并学习'}</small>`;catalog.append(row);});
   group.querySelector('.catalog-edit-button').addEventListener('click',()=>openCatalogSheet(plan.id,plan.title));if(plan.customId)group.querySelector('.task-meta-button').addEventListener('click',()=>openTaskSheet(plan.customId));list.append(group);
 }
@@ -210,7 +240,10 @@ function renderProgress(){
   let angle=0;const stops=groups.map(([category,seconds],index)=>{const start=angle;angle+=seconds/Math.max(total,1)*100;return `${chartColors[index%chartColors.length]} ${start}% ${angle}%`;});document.querySelector('#focusPie').style.background=groups.length?`conic-gradient(${stops.join(',')})`:'conic-gradient(rgba(118,118,128,.12) 0 100%)';document.querySelector('#focusPie').setAttribute('aria-label',groups.length?groups.map(([category,seconds])=>`${category}${formatFocusSeconds(seconds)}`).join('，'):'暂无专注数据');
   const legend=document.querySelector('#focusLegend');legend.innerHTML='';groups.forEach(([category,seconds],index)=>{const percent=Math.round(seconds/total*100),button=document.createElement('button');button.className='legend-item';button.title=`${category}：${formatFocusSeconds(seconds)}，占 ${percent}%`;button.innerHTML=`<span class="legend-dot" style="background:${chartColors[index%chartColors.length]}"></span><strong>${escapeText(category)}</strong><span>${percent}%</span>`;const show=()=>document.querySelector('#pieDetail').textContent=`${category}：${formatFocusSeconds(seconds)} · ${percent}%`;button.addEventListener('mouseenter',show);button.addEventListener('focus',show);button.addEventListener('click',show);legend.append(button);});if(!groups.length)legend.innerHTML='<div class="custom-empty">暂无数据</div>';document.querySelector('#pieDetail').textContent=groups.length?'悬浮或点击分类，查看具体专注时间。':'完成一次番茄专注后，这里会按分类统计实际时长。';
   document.querySelector('#statsGrid').innerHTML=`<div class="stat-card"><strong>${formatFocusSeconds(total)}</strong><span>总专注时长</span></div><div class="stat-card"><strong>${completed.length}</strong><span>完成任务</span></div><div class="stat-card"><strong>${days.size}</strong><span>专注天数</span></div>`;
-  const history=document.querySelector('#historyList');history.innerHTML='';const all=[...state.focusLogs].reverse();if(!all.length){history.innerHTML='<div class="empty-history">完成第一次番茄专注后，记录会出现在这里。</div>';return;}all.slice(0,20).forEach(log=>{const row=document.createElement('div');row.className='history-row';row.innerHTML=`<span class="history-dot">${icons.check}</span><div><strong>${escapeText(log.title)}</strong><span>${formatDate(log.date)} · ${escapeText(log.category)} · ${formatFocusSeconds(log.seconds)}</span></div>`;history.append(row);});
+  const history=document.querySelector('#historyList');history.innerHTML='';const all=[...state.focusLogs].reverse();if(!all.length){history.innerHTML='<div class="empty-history">完成第一次番茄专注后，记录会出现在这里。</div>';return;}
+  all.slice(0,20).forEach(log=>{const row=document.createElement('div');row.className='history-row';const manual=log.source==='manual';row.innerHTML=`<span class="history-dot">${icons.check}</span><div><strong>${escapeText(log.title)}</strong><span>${formatDate(log.date)} · ${escapeText(log.category)} · ${formatFocusSeconds(log.seconds)}${manual?` · 补记 ${escapeText(log.startTime)}–${escapeText(log.endTime)}`:''}</span></div>`;
+    if(manual){const remove=document.createElement('button');remove.className='history-remove';remove.textContent='撤销';remove.setAttribute('aria-label',`撤销 ${log.title} 的补记专注`);remove.addEventListener('click',()=>{state.focusLogs=state.focusLogs.filter(item=>item.id!==log.id);saveState();renderToday();renderProgress();});row.append(remove);}history.append(row);
+  });
 }
 
 document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(item=>{item.classList.toggle('active',item===tab);item.removeAttribute('aria-current');});tab.setAttribute('aria-current','page');document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===tab.dataset.view));if(tab.dataset.view==='planView')renderPlan();if(tab.dataset.view==='progressView')renderProgress();window.scrollTo({top:0,behavior:'smooth'});}));
@@ -230,5 +263,6 @@ document.querySelector('#progressDate').addEventListener('change',event=>{progre
 document.querySelector('#progressPrev').addEventListener('click',()=>{progressDate=progressPeriod==='month'?addMonths(progressDate,-1):addDays(progressDate,progressPeriod==='week'?-7:-1);renderProgress();});
 document.querySelector('#progressNext').addEventListener('click',()=>{progressDate=progressPeriod==='month'?addMonths(progressDate,1):addDays(progressDate,progressPeriod==='week'?7:1);renderProgress();});
 document.querySelector('#closeFocus').addEventListener('click',closeSheets);document.querySelector('#toggleFocus').addEventListener('click',toggleFocusTimer);document.querySelector('#resetFocus').addEventListener('click',resetFocusTimer);document.querySelector('#finishFocus').addEventListener('click',()=>finishAndRecordFocus(false));
+document.querySelector('#manualFocusStart').addEventListener('input',updateManualFocusPreview);document.querySelector('#manualFocusEnd').addEventListener('input',updateManualFocusPreview);document.querySelector('#saveManualFocus').addEventListener('click',saveManualFocus);
 document.querySelector('#installApp').addEventListener('click',async()=>{const hint=document.querySelector('#installHint');if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;closeSheets();return;}hint.textContent=/iphone|ipad|ipod/i.test(navigator.userAgent)?'在 Safari 中点击“分享”，然后选择“添加到主屏幕”。':'在浏览器菜单中选择“安装应用”或“添加到主屏幕”。';hint.hidden=false;});
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;});document.addEventListener('keydown',event=>{if(event.key==='Escape')closeSheets();});if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js');updatePlanName();renderToday();
