@@ -7,6 +7,12 @@ const course = [
 const DEFAULT_CATALOGS = {math:course.map(folder=>folder.title),english:['每日一篇阅读']};
 const today = dateOnly(new Date());
 const initialState = {schemaVersion:4,planName:'我的复习计划',catalogs:DEFAULT_CATALOGS,startDate:today,mathDays:DEFAULT_MATH_DAYS,defaults:{math:90,english:30},durations:{},proofs:{},completed:{},customTasks:[],restDays:{},advanceEvents:[],focusLogs:[],focusDrafts:{},focusTimer:null};
+const subjectIconOptions = [
+  ['language','语文'],['math','数学'],['english','英语'],['physics','物理'],
+  ['chemistry','化学'],['biology','生物'],['history','历史'],['geography','地理'],
+  ['politics','政治'],['technology','信息技术'],['music','音乐'],['art','美术']
+];
+const subjectIconKeys = new Set(subjectIconOptions.map(([key])=>key));
 let state = loadState();
 let selectedDate = today;
 let progressDate = today;
@@ -17,14 +23,22 @@ let catalogEditingId = null;
 let installPrompt = null;
 let focusTask = null;
 let focusInterval = null;
+let selectedCustomIcon = 'language';
+let iconManuallySelected = false;
 
 const icons = {
-  math:'<svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h2M14 9h2M8 13h2M14 13h2M8 17h2M14 17h2"/></svg>',
-  english:'<svg viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22Z"/><path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22Z"/></svg>',
-  custom:'<svg viewBox="0 0 24 24"><path d="M9 4h6l1 2h3v15H5V6h3Z"/><path d="m8 13 2.5 2.5L16 10"/></svg>',
   check:'<svg viewBox="0 0 24 24"><path d="m6 12 4 4 8-8"/></svg>'
 };
 const chartColors = ['#6155f5','#34c759','#ff9f0a','#0088ff','#ff375f','#5ac8fa','#af52de','#8e8e93'];
+function iconMarkup(key){return `<span class="subject-sprite icon-${subjectIconKeys.has(key)?key:'language'}" aria-hidden="true"></span>`;}
+function defaultIconForCategory(category=''){
+  const value=String(category).toLowerCase();
+  if(value.includes('数学'))return'math';if(value.includes('英语')||value.includes('英文'))return'english';
+  if(value.includes('物理'))return'physics';if(value.includes('化学'))return'chemistry';if(value.includes('生物'))return'biology';
+  if(value.includes('历史'))return'history';if(value.includes('地理'))return'geography';if(value.includes('政治'))return'politics';
+  if(value.includes('信息')||value.includes('计算机')||value.includes('专业'))return'technology';
+  if(value.includes('音乐'))return'music';if(value.includes('美术'))return'art';return'language';
+}
 
 function dateOnly(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
 function parseDate(key){const [y,m,d]=key.split('-').map(Number);return new Date(y,m-1,d);}
@@ -43,7 +57,7 @@ function loadState(){
   try{
     const saved=JSON.parse(localStorage.getItem(STORE)||'{}');
     const catalogs={math:cleanCatalog(saved.catalogs?.math,DEFAULT_CATALOGS.math),english:cleanCatalog(saved.catalogs?.english,DEFAULT_CATALOGS.english)};
-    const merged={...initialState,...saved,schemaVersion:4,planName:String(saved.planName||'我的复习计划').trim()||'我的复习计划',catalogs,mathDays:Math.max(catalogs.math.length,Math.min(365,Number(saved.mathDays)||DEFAULT_MATH_DAYS)),defaults:{...initialState.defaults,...(saved.defaults||{})},durations:saved.durations||{},proofs:saved.proofs||{},completed:saved.completed||{},restDays:saved.restDays||{},advanceEvents:Array.isArray(saved.advanceEvents)?saved.advanceEvents:[],focusLogs:Array.isArray(saved.focusLogs)?saved.focusLogs:[],focusDrafts:saved.focusDrafts||{},focusTimer:saved.focusTimer||null,customTasks:Array.isArray(saved.customTasks)?saved.customTasks.map(task=>({...task,category:task.category||'其他',catalog:cleanCatalog(task.catalog,[task.title||'学习任务']),totalDays:Math.max(1,Math.min(365,Number(task.totalDays)||(task.repeat?DEFAULT_MATH_DAYS:1)))})):[]};
+    const merged={...initialState,...saved,schemaVersion:4,planName:String(saved.planName||'我的复习计划').trim()||'我的复习计划',catalogs,mathDays:Math.max(catalogs.math.length,Math.min(365,Number(saved.mathDays)||DEFAULT_MATH_DAYS)),defaults:{...initialState.defaults,...(saved.defaults||{})},durations:saved.durations||{},proofs:saved.proofs||{},completed:saved.completed||{},restDays:saved.restDays||{},advanceEvents:Array.isArray(saved.advanceEvents)?saved.advanceEvents:[],focusLogs:Array.isArray(saved.focusLogs)?saved.focusLogs:[],focusDrafts:saved.focusDrafts||{},focusTimer:saved.focusTimer||null,customTasks:Array.isArray(saved.customTasks)?saved.customTasks.map(task=>({...task,category:task.category||'其他',icon:subjectIconKeys.has(task.icon)?task.icon:defaultIconForCategory(task.category),catalog:cleanCatalog(task.catalog,[task.title||'学习任务']),totalDays:Math.max(1,Math.min(365,Number(task.totalDays)||(task.repeat?DEFAULT_MATH_DAYS:1)))})):[]};
     if(!saved.schemaVersion||saved.schemaVersion<2)migrateLegacy(merged,saved);
     if(!saved.schemaVersion||saved.schemaVersion<3)migrateFocusLogs(merged);
     if(merged.focusTimer?.running){merged.focusTimer.elapsedSeconds=Math.min(merged.focusTimer.durationSeconds,(merged.focusTimer.elapsedSeconds||0)+Math.floor((Date.now()-merged.focusTimer.startedAt)/1000));merged.focusTimer.running=false;}
@@ -85,9 +99,9 @@ function catalogItem(catalog,index,totalDays,fallback){
 function seriesDefinitions(){
   const schedule=mathPlan().schedule;
   return [
-    {id:'math',kind:'math',category:'数学',startDate:state.startDate,totalDays:state.mathDays,defaultDuration:state.defaults.math,itemAt:index=>({title:schedule[index].title,detail:`文件夹学习第 ${schedule[index].part} / ${schedule[index].days} 天 · 共 ${schedule[index].count} 项 · 完成后拍照`})},
-    {id:'english',kind:'english',category:'英语',startDate:state.startDate,totalDays:ENGLISH_DAYS,defaultDuration:state.defaults.english,itemAt:index=>catalogItem(state.catalogs.english,index,ENGLISH_DAYS,`完成第 ${index+1} 篇阅读`)},
-    ...state.customTasks.map(task=>({id:`custom-${task.id}`,kind:'custom',category:task.category,startDate:task.startDate,totalDays:task.totalDays,defaultDuration:task.duration,itemAt:index=>catalogItem(task.catalog,index,task.totalDays,task.title)}))
+    {id:'math',kind:'math',icon:'math',category:'数学',startDate:state.startDate,totalDays:state.mathDays,defaultDuration:state.defaults.math,itemAt:index=>({title:schedule[index].title,detail:`文件夹学习第 ${schedule[index].part} / ${schedule[index].days} 天 · 共 ${schedule[index].count} 项 · 完成后拍照`})},
+    {id:'english',kind:'english',icon:'english',category:'英语',startDate:state.startDate,totalDays:ENGLISH_DAYS,defaultDuration:state.defaults.english,itemAt:index=>catalogItem(state.catalogs.english,index,ENGLISH_DAYS,`完成第 ${index+1} 篇阅读`)},
+    ...state.customTasks.map(task=>({id:`custom-${task.id}`,kind:'custom',icon:task.icon,category:task.category,startDate:task.startDate,totalDays:task.totalDays,defaultDuration:task.duration,itemAt:index=>catalogItem(task.catalog,index,task.totalDays,task.title)}))
   ];
 }
 function restCount(start,date){return Object.keys(state.restDays).filter(key=>state.restDays[key]&&key>=start&&key<=date).length;}
@@ -106,7 +120,7 @@ function completedOnDate(date,scheduledTasks){
   const scheduledIds=new Set(scheduledTasks.map(task=>task.itemId)),seriesById=new Map(seriesDefinitions().map(series=>[series.id,series]));
   return completedEntries().filter(([itemId,entry])=>entry.completedDate===date&&entry.plannedDate!==date&&!scheduledIds.has(itemId)).map(([itemId,entry])=>{
     const series=seriesById.get(entry.seriesId),category=entry.category||series?.category||'其他';
-    return {itemId,id:entry.seriesId,index:entry.index,kind:series?.kind||'custom',category,title:entry.title||'已完成任务',detail:`原计划 ${entry.plannedDate?formatDate(entry.plannedDate):'未来日期'} · 当天已打卡`,label:`${category} · 提前完成`,defaultDuration:entry.minutes||series?.defaultDuration||30};
+    return {itemId,id:entry.seriesId,index:entry.index,kind:series?.kind||'custom',icon:series?.icon||defaultIconForCategory(category),category,title:entry.title||'已完成任务',detail:`原计划 ${entry.plannedDate?formatDate(entry.plannedDate):'未来日期'} · 当天已打卡`,label:`${category} · 提前完成`,defaultDuration:entry.minutes||series?.defaultDuration||30};
   });
 }
 
@@ -131,7 +145,7 @@ function renderToday(){
   document.querySelector('#progressMessage').textContent=state.restDays[selectedDate]?'休息也是计划的一部分。':!visibleTasks.length?'今天没有安排，留一点空间给自己。':complete===visibleTasks.length?'今日任务已完成。去好好休息吧。':complete?`已完成 ${complete} / ${visibleTasks.length} 项，继续保持。`:`完成今天的 ${visibleTasks.length} 项任务，就算赢下今天。`;
 }
 function renderTask(task){
-  const node=document.querySelector('#taskTemplate').content.firstElementChild.cloneNode(true),proof=state.proofs[task.itemId],done=completionFor(task);node.classList.add(task.kind);if(done)node.classList.add('completed');node.querySelector('.subject-icon').innerHTML=icons[task.kind];node.querySelector('.subject-label').textContent=task.label;node.querySelector('h3').textContent=task.title;node.querySelector('.task-detail').textContent=task.detail;
+  const node=document.querySelector('#taskTemplate').content.firstElementChild.cloneNode(true),proof=state.proofs[task.itemId],done=completionFor(task);node.classList.add(task.kind);if(done)node.classList.add('completed');node.querySelector('.subject-icon').innerHTML=iconMarkup(task.icon);node.querySelector('.subject-label').textContent=task.label;node.querySelector('h3').textContent=task.title;node.querySelector('.task-detail').textContent=task.detail;
   const duration=node.querySelector('.duration-pill');duration.textContent=`专注 ${durationFor(task)} 分钟`;duration.addEventListener('click',()=>openDuration(task));
   const focus=node.querySelector('.focus-button'),focused=focusSecondsForItem(task.itemId),isRunning=state.focusTimer?.itemId===task.itemId&&state.focusTimer.running;focus.classList.toggle('running',isRunning);focus.querySelector('strong').textContent=isRunning?'番茄钟进行中':'开始番茄专注';focus.querySelector('small').textContent=focused?`已专注 ${formatFocusSeconds(focused)}`:`本轮 ${durationFor(task)} 分钟`;focus.addEventListener('click',()=>openFocusTimer(task));
   const input=node.querySelector('.photo-input'),upload=node.querySelector('.upload-button'),replace=node.querySelector('.replace-proof'),preview=node.querySelector('.proof-preview'),complete=node.querySelector('.complete-button');
@@ -209,22 +223,31 @@ function renderPlan(){
   const taskCount=2+state.customTasks.length,catalogCount=state.catalogs.math.length+state.catalogs.english.length+state.customTasks.reduce((sum,task)=>sum+cleanCatalog(task.catalog,[task.title]).length,0);
   document.querySelector('#planSummary').innerHTML=`<div class="summary-card"><strong>${taskCount} 个任务</strong><span>${formatDate(state.startDate)}开始</span></div><div class="summary-card"><strong>${catalogCount} 项目录</strong><span>可随时编辑</span></div>`;
   const list=document.querySelector('#planTaskList');list.innerHTML='';
-  renderPlanGroup(list,{id:'math',title:'数学',category:'数学',startDate:state.startDate,totalDays:state.mathDays,catalog:state.catalogs.math,allocations:mathPlan().allocations});
-  renderPlanGroup(list,{id:'english',title:'英语阅读',category:'英语',startDate:state.startDate,totalDays:ENGLISH_DAYS,catalog:state.catalogs.english});
-  state.customTasks.forEach(task=>renderPlanGroup(list,{id:`custom-${task.id}`,title:task.title,category:task.category,startDate:task.startDate,totalDays:task.totalDays,catalog:cleanCatalog(task.catalog,[task.title]),customId:task.id}));
+  renderPlanGroup(list,{id:'math',icon:'math',title:'数学',category:'数学',startDate:state.startDate,totalDays:state.mathDays,catalog:state.catalogs.math,allocations:mathPlan().allocations});
+  renderPlanGroup(list,{id:'english',icon:'english',title:'英语阅读',category:'英语',startDate:state.startDate,totalDays:ENGLISH_DAYS,catalog:state.catalogs.english});
+  state.customTasks.forEach(task=>renderPlanGroup(list,{id:`custom-${task.id}`,icon:task.icon,title:task.title,category:task.category,startDate:task.startDate,totalDays:task.totalDays,catalog:cleanCatalog(task.catalog,[task.title]),customId:task.id}));
 }
 function completedForPlan(seriesId){
   return completedEntries().filter(([itemId])=>itemId.startsWith(`${seriesId}:`)).map(([itemId,entry])=>({itemId,entry,index:Number(itemId.slice(seriesId.length+1))})).sort((a,b)=>b.entry.completedDate.localeCompare(a.entry.completedDate)||b.index-a.index);
 }
 function renderPlanGroup(list,plan){
   const completed=completedForPlan(plan.id),group=document.createElement('section');group.className='plan-task-group';
-  group.innerHTML=`<div class="plan-task-head"><div><h3>${escapeText(plan.title)}</h3><p>${escapeText(plan.category)} · ${formatDate(plan.startDate)}开始 · ${plan.totalDays} 天 · ${plan.catalog.length} 项目录</p><span class="plan-done-count">已完成 ${completed.length} / ${plan.totalDays} 天</span></div><div class="plan-task-actions">${plan.customId?`<button class="task-meta-button" aria-label="编辑任务 ${escapeText(plan.title)}">›</button>`:''}<button class="catalog-edit-button">编辑目录</button></div></div>${completed.length?'<details class="plan-completed-records" open><summary>已完成记录</summary><div class="plan-completed-list"></div></details>':''}<div class="plan-catalog"></div>`;
+  group.innerHTML=`<div class="plan-task-head"><span class="plan-task-icon">${iconMarkup(plan.icon)}</span><div><h3>${escapeText(plan.title)}</h3><p>${escapeText(plan.category)} · ${formatDate(plan.startDate)}开始 · ${plan.totalDays} 天 · ${plan.catalog.length} 项目录</p><span class="plan-done-count">已完成 ${completed.length} / ${plan.totalDays} 天</span></div><div class="plan-task-actions">${plan.customId?`<button class="task-meta-button" aria-label="编辑任务 ${escapeText(plan.title)}">›</button>`:''}<button class="catalog-edit-button">编辑目录</button></div></div>${completed.length?'<details class="plan-completed-records" open><summary>已完成记录</summary><div class="plan-completed-list"></div></details>':''}<div class="plan-catalog"></div>`;
   if(completed.length){const records=group.querySelector('.plan-completed-list');completed.forEach(({entry,index})=>{const row=document.createElement('div');row.className='plan-completed-row';row.innerHTML=`<span class="plan-completed-check">✓</span><div><strong>${escapeText(entry.title||`第 ${index+1} 天`)}</strong><small>第 ${index+1} 天 · ${formatDate(entry.completedDate)}完成</small></div>`;records.append(row);});}
   const catalog=group.querySelector('.plan-catalog');plan.catalog.forEach((title,index)=>{const days=plan.allocations?.[index]?.days??Math.floor((index+1)*plan.totalDays/plan.catalog.length)-Math.floor(index*plan.totalDays/plan.catalog.length),row=document.createElement('div');row.className='plan-catalog-row';row.innerHTML=`<span class="catalog-order">${String(index+1).padStart(2,'0')}</span><strong>${escapeText(title)}</strong><small>${days>0?`${days} 天`:'合并学习'}</small>`;catalog.append(row);});
   group.querySelector('.catalog-edit-button').addEventListener('click',()=>openCatalogSheet(plan.id,plan.title));if(plan.customId)group.querySelector('.task-meta-button').addEventListener('click',()=>openTaskSheet(plan.customId));list.append(group);
 }
+function selectCustomIcon(key,manual=true){
+  selectedCustomIcon=subjectIconKeys.has(key)?key:'language';if(manual)iconManuallySelected=true;
+  document.querySelectorAll('#iconPicker .icon-choice').forEach(button=>{const selected=button.dataset.icon===selectedCustomIcon;button.classList.toggle('selected',selected);button.setAttribute('aria-checked',String(selected));});
+}
+function renderIconPicker(selected){
+  const picker=document.querySelector('#iconPicker');picker.innerHTML='';
+  subjectIconOptions.forEach(([key,label])=>{const button=document.createElement('button');button.type='button';button.className='icon-choice';button.dataset.icon=key;button.setAttribute('role','radio');button.setAttribute('aria-label',label);button.innerHTML=`${iconMarkup(key)}<span>${label}</span>`;button.addEventListener('click',()=>selectCustomIcon(key));picker.append(button);});
+  selectCustomIcon(selected,false);
+}
 function openTaskSheet(id=null){
-  customEditingId=id;const task=state.customTasks.find(item=>item.id===id);document.querySelector('#taskSheetTitle').textContent=task?'编辑任务':'添加任务';document.querySelector('#customTitle').value=task?.title||'';document.querySelector('#customCategory').value=task?.category||'';document.querySelector('#customStartDate').value=task?.startDate||selectedDate;document.querySelector('#customTotalDays').value=task?.totalDays||1;document.querySelector('#customDuration').value=task?.duration||30;document.querySelector('#customCatalog').value=cleanCatalog(task?.catalog,task?.title?[task.title]:[]).join('\n');document.querySelector('#deleteTask').hidden=!task;document.querySelector('#taskError').hidden=true;openSheet('#taskSheet');setTimeout(()=>document.querySelector('#customTitle').focus(),80);
+  customEditingId=id;const task=state.customTasks.find(item=>item.id===id);document.querySelector('#taskSheetTitle').textContent=task?'编辑任务':'添加任务';document.querySelector('#customTitle').value=task?.title||'';document.querySelector('#customCategory').value=task?.category||'';renderIconPicker(task?.icon||defaultIconForCategory(task?.category));iconManuallySelected=Boolean(task?.icon);document.querySelector('#customStartDate').value=task?.startDate||selectedDate;document.querySelector('#customTotalDays').value=task?.totalDays||1;document.querySelector('#customDuration').value=task?.duration||30;document.querySelector('#customCatalog').value=cleanCatalog(task?.catalog,task?.title?[task.title]:[]).join('\n');document.querySelector('#deleteTask').hidden=!task;document.querySelector('#taskError').hidden=true;openSheet('#taskSheet');setTimeout(()=>document.querySelector('#customTitle').focus(),80);
 }
 function catalogFor(id){if(id==='math'||id==='english')return state.catalogs[id];const task=state.customTasks.find(item=>`custom-${item.id}`===id);return task?.catalog||[];}
 function openCatalogSheet(id,title){catalogEditingId=id;document.querySelector('#catalogSubject').textContent=`${title} · 每行一项`;document.querySelector('#catalogInput').value=cleanCatalog(catalogFor(id)).join('\n');document.querySelector('#catalogError').hidden=true;openSheet('#catalogSheet');setTimeout(()=>document.querySelector('#catalogInput').focus(),80);}
@@ -252,10 +275,11 @@ document.querySelector('#backToToday').addEventListener('click',()=>{selectedDat
 document.querySelector('#restToday').addEventListener('click',()=>{if(state.restDays[today])delete state.restDays[today];else state.restDays[today]=true;saveState();renderToday();});
 document.querySelector('#openSettings').addEventListener('click',()=>{document.querySelector('#planName').value=displayPlanName();document.querySelector('#planStartDate').value=state.startDate;document.querySelector('#mathPlanDays').value=state.mathDays;document.querySelector('#mathPlanDays').min=state.catalogs.math.length;document.querySelector('#mathDefault').value=state.defaults.math;document.querySelector('#englishDefault').value=state.defaults.english;document.querySelector('#installHint').hidden=true;openSheet('#settingsSheet');});
 document.querySelector('#openAddTask').addEventListener('click',()=>openTaskSheet());document.querySelectorAll('[data-close-sheet]').forEach(button=>button.addEventListener('click',closeSheets));document.querySelector('#sheetBackdrop').addEventListener('click',closeSheets);
+document.querySelector('#customCategory').addEventListener('input',event=>{if(!iconManuallySelected)selectCustomIcon(defaultIconForCategory(event.target.value),false);});
 document.querySelector('#presetRow').addEventListener('click',event=>{if(event.target.tagName==='BUTTON')document.querySelector('#durationInput').value=event.target.textContent;});
 document.querySelector('#saveDuration').addEventListener('click',()=>{state.durations[durationEditing.itemId]=Math.max(5,Math.min(480,Number(document.querySelector('#durationInput').value)||30));if(state.focusTimer?.itemId===durationEditing.itemId&&!state.focusTimer.running)state.focusTimer.durationSeconds=state.durations[durationEditing.itemId]*60;saveState();closeSheets();renderToday();});
 document.querySelector('#saveSettings').addEventListener('click',()=>{state.planName=document.querySelector('#planName').value.trim()||'我的复习计划';state.startDate=document.querySelector('#planStartDate').value||today;state.mathDays=Math.max(state.catalogs.math.length,Math.min(365,Number(document.querySelector('#mathPlanDays').value)||DEFAULT_MATH_DAYS));state.defaults.math=Math.max(5,Math.min(480,Number(document.querySelector('#mathDefault').value)||90));state.defaults.english=Math.max(5,Math.min(480,Number(document.querySelector('#englishDefault').value)||30));saveState();updatePlanName();closeSheets();renderToday();renderPlan();});
-document.querySelector('#saveTask').addEventListener('click',()=>{const title=document.querySelector('#customTitle').value.trim(),category=document.querySelector('#customCategory').value.trim()||'其他';if(!title){document.querySelector('#taskError').hidden=false;return;}const task={id:customEditingId||`${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`,title,category,catalog:cleanCatalog(document.querySelector('#customCatalog').value,[title]),startDate:document.querySelector('#customStartDate').value||selectedDate,totalDays:Math.max(1,Math.min(365,Number(document.querySelector('#customTotalDays').value)||1)),duration:Math.max(5,Math.min(480,Number(document.querySelector('#customDuration').value)||30))},index=state.customTasks.findIndex(item=>item.id===customEditingId);if(index>=0)state.customTasks[index]=task;else state.customTasks.push(task);saveState();closeSheets();renderPlan();renderToday();});
+document.querySelector('#saveTask').addEventListener('click',()=>{const title=document.querySelector('#customTitle').value.trim(),category=document.querySelector('#customCategory').value.trim()||'其他';if(!title){document.querySelector('#taskError').hidden=false;return;}const task={id:customEditingId||`${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`,title,category,icon:selectedCustomIcon,catalog:cleanCatalog(document.querySelector('#customCatalog').value,[title]),startDate:document.querySelector('#customStartDate').value||selectedDate,totalDays:Math.max(1,Math.min(365,Number(document.querySelector('#customTotalDays').value)||1)),duration:Math.max(5,Math.min(480,Number(document.querySelector('#customDuration').value)||30))},index=state.customTasks.findIndex(item=>item.id===customEditingId);if(index>=0)state.customTasks[index]=task;else state.customTasks.push(task);saveState();closeSheets();renderPlan();renderToday();});
 document.querySelector('#saveCatalog').addEventListener('click',()=>{const items=cleanCatalog(document.querySelector('#catalogInput').value);if(!items.length){document.querySelector('#catalogError').hidden=false;return;}const id=catalogEditingId;if(id==='math'||id==='english')state.catalogs[id]=items;else{const task=state.customTasks.find(item=>`custom-${item.id}`===id);if(task)task.catalog=items;}if(id==='math')state.mathDays=Math.max(state.mathDays,items.length);saveState();closeSheets();renderPlan();renderToday();});
 document.querySelector('#deleteTask').addEventListener('click',()=>{const task=state.customTasks.find(item=>item.id===customEditingId);if(!task||!window.confirm(`删除“${task.title}”？`))return;const marker=`custom-${task.id}`;state.customTasks=state.customTasks.filter(item=>item.id!==task.id);state.advanceEvents=state.advanceEvents.filter(event=>event.seriesId!==marker);['durations','proofs','completed'].forEach(group=>Object.keys(state[group]).filter(key=>key.startsWith(`${marker}:`)).forEach(key=>delete state[group][key]));saveState();closeSheets();renderPlan();renderToday();});
 document.querySelector('#periodTabs').addEventListener('click',event=>{const button=event.target.closest('button');if(!button)return;progressPeriod=button.dataset.period;document.querySelectorAll('#periodTabs button').forEach(item=>item.classList.toggle('active',item===button));renderProgress();});
