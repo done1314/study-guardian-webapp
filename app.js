@@ -147,12 +147,14 @@ function renderToday(){
 function renderTask(task){
   const node=document.querySelector('#taskTemplate').content.firstElementChild.cloneNode(true),proof=state.proofs[task.itemId],done=completionFor(task);node.classList.add(task.kind);if(done)node.classList.add('completed');node.querySelector('.subject-icon').innerHTML=iconMarkup(task.icon);node.querySelector('.subject-label').textContent=task.label;node.querySelector('h3').textContent=task.title;node.querySelector('.task-detail').textContent=task.detail;
   const duration=node.querySelector('.duration-pill');duration.textContent=`专注 ${durationFor(task)} 分钟`;duration.addEventListener('click',()=>openDuration(task));
-  const focus=node.querySelector('.focus-button'),focused=focusSecondsForItem(task.itemId),isRunning=state.focusTimer?.itemId===task.itemId&&state.focusTimer.running;focus.classList.toggle('running',isRunning);focus.querySelector('strong').textContent=isRunning?'番茄钟进行中':'开始番茄专注';focus.querySelector('small').textContent=focused?`已专注 ${formatFocusSeconds(focused)}`:`本轮 ${durationFor(task)} 分钟`;focus.addEventListener('click',()=>openFocusTimer(task));
+  const focus=node.querySelector('.focus-button'),focused=focusSecondsForItem(task.itemId),isRunning=state.focusTimer?.itemId===task.itemId&&state.focusTimer.running;focus.classList.toggle('running',isRunning);focus.querySelector('strong').textContent=isRunning?'计时进行中':'番茄计时';focus.querySelector('small').textContent=focused?`已专注 ${formatFocusSeconds(focused)}`:`本轮 ${durationFor(task)} 分钟`;focus.addEventListener('click',()=>openFocusTimer(task));
+  const manual=node.querySelector('.manual-focus-button'),manualSeconds=manualFocusSecondsForItem(task.itemId);manual.querySelector('small').textContent=manualSeconds?`今日已补记 ${formatFocusSeconds(manualSeconds)}`:'填写起止时间';manual.addEventListener('click',()=>openManualFocus(task));
   const input=node.querySelector('.photo-input'),upload=node.querySelector('.upload-button'),replace=node.querySelector('.replace-proof'),preview=node.querySelector('.proof-preview'),complete=node.querySelector('.complete-button');
   if(proof){showProof(preview,upload,proof);complete.disabled=false;}complete.textContent=done?'已完成':selectedDate>today?'提前完成并记录专注':'完成打卡并记录专注';
   upload.addEventListener('click',()=>input.click());replace.addEventListener('click',()=>input.click());input.addEventListener('change',()=>handlePhoto(input.files[0],task));complete.addEventListener('click',()=>toggleComplete(task));document.querySelector('#taskList').append(node);
 }
 function focusSecondsForItem(itemId){return state.focusLogs.filter(log=>log.itemId===itemId).reduce((sum,log)=>sum+Number(log.seconds||0),0);}
+function manualFocusSecondsForItem(itemId){return state.focusLogs.filter(log=>log.source==='manual'&&log.itemId===itemId&&log.date===today).reduce((sum,log)=>sum+Number(log.seconds||0),0);}
 function toggleComplete(task){
   const existing=completionFor(task);
   if(existing){delete state.completed[task.itemId];state.advanceEvents=state.advanceEvents.filter(event=>event.itemId!==task.itemId);}
@@ -177,8 +179,10 @@ function pauseFocusTimer(){
 function openFocusTimer(task){
   if(state.focusTimer?.itemId!==task.itemId){pauseFocusTimer();state.focusTimer={itemId:task.itemId,durationSeconds:durationFor(task)*60,elapsedSeconds:state.focusDrafts[task.itemId]||0,running:false,startedAt:null};}
   focusTask=task;document.querySelector('#focusSubject').textContent=`${task.category} · ${task.title}`;
-  document.querySelector('#manualFocusStart').value='';document.querySelector('#manualFocusEnd').value=new Date().toTimeString().slice(0,5);updateManualFocusPreview();
   openSheet('#focusSheet');startFocusTicker();renderFocusTimer();
+}
+function openManualFocus(task){
+  pauseFocusTimer();focusTask=task;document.querySelector('#manualFocusSubject').textContent=`${task.category} · ${task.title}`;document.querySelector('#manualFocusStart').value='';document.querySelector('#manualFocusEnd').value=new Date().toTimeString().slice(0,5);updateManualFocusPreview();openSheet('#manualFocusSheet');
 }
 function startFocusTicker(){clearInterval(focusInterval);focusInterval=setInterval(()=>{renderFocusTimer();if(state.focusTimer?.running&&currentFocusElapsed()>=state.focusTimer.durationSeconds)finishAndRecordFocus(true);},1000);}
 function renderFocusTimer(){
